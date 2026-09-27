@@ -127,7 +127,7 @@ def _attempt_websocket_reconnect(ws_url, max_attempts, delay_s, initial_error):
     )
 
 
-def validate_input(job_input):
+def validate_input_data_by_user(job_input):
     """
     Validates the input for the handler function.
 
@@ -180,7 +180,7 @@ def validate_input(job_input):
     return {"workflow": workflow, "images": images, "audio": audio_files}, None
 
 
-def check_server(url, retries=500, delay=50):
+def check_comfyui_server_status(url, retries=500, delay=50):
     """
     Check if a server is reachable via HTTP GET request
 
@@ -216,7 +216,7 @@ def check_server(url, retries=500, delay=50):
     return False
 
 
-def upload_images(images):
+def upload_images_to_input_folder_comfyUI(images):
     """
     Upload a list of base64 encoded images to the ComfyUI server using the /upload/image endpoint.
 
@@ -300,7 +300,7 @@ def upload_images(images):
     }
 
 
-def upload_audio(audio_files):
+def upload_audio_to_input_folder_comfyUI(audio_files):
     """
     Upload base64-encoded audio files to ComfyUI's input directory (RunPod-safe).
     Since ComfyUI doesn't have a dedicated /upload/audio endpoint, we save files directly to the input folder.
@@ -413,7 +413,7 @@ def upload_audio(audio_files):
     }
 
 
-def get_available_models():
+def get_available_models_name_only():
     """
     Get list of available models from ComfyUI
 
@@ -432,14 +432,48 @@ def get_available_models():
             if "input" in checkpoint_info and "required" in checkpoint_info["input"]:
                 ckpt_options = checkpoint_info["input"]["required"].get("ckpt_name")
                 if ckpt_options and len(ckpt_options) > 0:
-                    available_models["checkpoints"] = (
-                        ckpt_options[0] if isinstance(ckpt_options[0], list) else []
-                    )
+                    available_models["checkpoints"] = (ckpt_options[0] if isinstance(ckpt_options[0], list) else [])
 
         return available_models
     except Exception as e:
         print(f"worker-comfyui - Warning: Could not fetch available models: {e}")
         return {}
+
+
+def get_image_data_from_comfyui(filename, subfolder, image_type):
+    """
+    Fetch image bytes from the ComfyUI /view endpoint.
+
+    Args:
+        filename (str): The filename of the image.
+        subfolder (str): The subfolder where the image is stored.
+        image_type (str): The type of the image (e.g., 'output').
+
+    Returns:
+        bytes: The raw image data, or None if an error occurs.
+    """
+    print(f"worker-comfyui - Fetching image data: type={image_type}, subfolder={subfolder}, filename={filename}")
+    
+    data = {"filename": filename, "subfolder": subfolder, "type": image_type}
+    url_values = urllib.parse.urlencode(data)
+
+    try:
+        response = requests.get(f"http://{COMFY_HOST}/view?{url_values}", timeout=60)
+        response.raise_for_status()
+        print(f"worker-comfyui - Successfully fetched image data for {filename}")
+        return response.content
+    
+    except requests.Timeout:
+        print(f"worker-comfyui - Timeout fetching image data for {filename}")
+        return None
+    
+    except requests.RequestException as e:
+        print(f"worker-comfyui - Error fetching image data for {filename}: {e}")
+        return None
+    
+    except Exception as e:
+        print(f"worker-comfyui - Unexpected error fetching image data for {filename}: {e}")
+        return None
 
 
 def queue_workflow(workflow, client_id):
@@ -458,12 +492,12 @@ def queue_workflow(workflow, client_id):
     """
     # Include client_id in the prompt payload
     payload = {"prompt": workflow, "client_id": client_id}
-    data = json.dumps(payload).encode("utf-8")
+    bytesData = json.dumps(payload).encode("utf-8")
 
     # Use requests for consistency and timeout
     headers = {"Content-Type": "application/json"}
     response = requests.post(
-        f"http://{COMFY_HOST}/prompt", data=data, headers=headers, timeout=30
+        f"http://{COMFY_HOST}/prompt", data=bytesData, headers=headers, timeout=30
     )
 
     # Handle validation errors with detailed information
@@ -527,7 +561,7 @@ def queue_workflow(workflow, client_id):
                 # For this type of error, we need to parse the validation details from logs
                 # Since ComfyUI doesn't seem to include detailed validation errors in the response
                 # Let's provide a more helpful generic message
-                available_models = get_available_models()
+                available_models = get_available_models_name_only()
                 if available_models.get("checkpoints"):
                     error_message += f"\n\nThis usually means a required model or parameter is not available."
                     error_message += f"\nAvailable checkpoint models: {', '.join(available_models['checkpoints'])}"
@@ -548,7 +582,7 @@ def queue_workflow(workflow, client_id):
                     "not in list" in detail and "ckpt_name" in detail
                     for detail in error_details
                 ):
-                    available_models = get_available_models()
+                    available_models = get_available_models_name_only()
                     if available_models.get("checkpoints"):
                         detailed_message += f"\n\nAvailable checkpoint models: {', '.join(available_models['checkpoints'])}"
                     else:
@@ -586,42 +620,6 @@ def get_history(prompt_id):
     return response.json()
 
 
-def get_image_data(filename, subfolder, image_type):
-    """
-    Fetch image bytes from the ComfyUI /view endpoint.
-
-    Args:
-        filename (str): The filename of the image.
-        subfolder (str): The subfolder where the image is stored.
-        image_type (str): The type of the image (e.g., 'output').
-
-    Returns:
-        bytes: The raw image data, or None if an error occurs.
-    """
-    print(
-        f"worker-comfyui - Fetching image data: type={image_type}, subfolder={subfolder}, filename={filename}"
-    )
-    data = {"filename": filename, "subfolder": subfolder, "type": image_type}
-    url_values = urllib.parse.urlencode(data)
-    try:
-        # Use requests for consistency and timeout
-        response = requests.get(f"http://{COMFY_HOST}/view?{url_values}", timeout=60)
-        response.raise_for_status()
-        print(f"worker-comfyui - Successfully fetched image data for {filename}")
-        return response.content
-    except requests.Timeout:
-        print(f"worker-comfyui - Timeout fetching image data for {filename}")
-        return None
-    except requests.RequestException as e:
-        print(f"worker-comfyui - Error fetching image data for {filename}: {e}")
-        return None
-    except Exception as e:
-        print(
-            f"worker-comfyui - Unexpected error fetching image data for {filename}: {e}"
-        )
-        return None
-
-
 def handler(job):
     """
     Handles a job using ComfyUI via websockets for status and output file retrieval.
@@ -636,7 +634,7 @@ def handler(job):
     job_id = job["id"]
 
     # Make sure that the input is valid
-    validated_data, error_message = validate_input(job_input)
+    validated_data, error_message = validate_input_data_by_user(job_input)
     if error_message:
         return {"error": error_message}
 
@@ -646,18 +644,16 @@ def handler(job):
     input_audio = validated_data.get("audio")
 
     # Make sure that the ComfyUI HTTP API is available before proceeding
-    if not check_server(
+    if not check_comfyui_server_status(
         f"http://{COMFY_HOST}/",
         COMFY_API_AVAILABLE_MAX_RETRIES,
         COMFY_API_AVAILABLE_INTERVAL_MS,
     ):
-        return {
-            "error": f"ComfyUI server ({COMFY_HOST}) not reachable after multiple retries."
-        }
+        return {"error": f"ComfyUI server ({COMFY_HOST}) not reachable after multiple retries."}
 
     # Upload input images if they exist
     if input_images:
-        upload_result = upload_images(input_images)
+        upload_result = upload_images_to_input_folder_comfyUI(input_images)
         if upload_result["status"] == "error":
             # Return upload errors
             return {
@@ -667,7 +663,7 @@ def handler(job):
 
     # Upload input audio files if they exist
     if input_audio:
-        upload_result = upload_audio(input_audio)
+        upload_result = upload_audio_to_input_folder_comfyUI(input_audio)
         if upload_result["status"] == "error":
             # Return upload errors
             return {
@@ -826,7 +822,7 @@ def handler(job):
                         errors.append(warn_msg)
                         continue
 
-                    image_bytes = get_image_data(filename, subfolder, img_type)
+                    image_bytes = get_image_data_from_comfyui(filename, subfolder, img_type)
 
                     if image_bytes:
                         # Always return as base64 string for serverless
@@ -875,7 +871,7 @@ def handler(job):
                         errors.append(warn_msg)
                         continue
 
-                    gif_bytes = get_image_data(filename, subfolder, gif_type)
+                    gif_bytes = get_image_data_from_comfyui(filename, subfolder, gif_type)
 
                     if gif_bytes:
                         # Always return as base64 string for serverless
@@ -923,7 +919,7 @@ def handler(job):
                         errors.append(warn_msg)
                         continue
 
-                    video_bytes = get_image_data(filename, subfolder, video_type)
+                    video_bytes = get_image_data_from_comfyui(filename, subfolder, video_type)
 
                     if video_bytes:
                         # Always return as base64 string for serverless
@@ -1007,6 +1003,8 @@ def handler(job):
     return final_result
 
 
-if __name__ == "__main__":
-    print("worker-comfyui - Starting handler...")
-    runpod.serverless.start({"handler": handler})
+runpod.serverless.start({"handler": handler})
+
+# if __name__ == "__main__":
+#     print("worker-comfyui - Starting handler...")
+#     runpod.serverless.start({"handler": handler})
