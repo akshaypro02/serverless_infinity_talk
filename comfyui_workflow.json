@@ -1,0 +1,154 @@
+{
+  "486": {
+    "inputs": {
+      "vae_name": "qwen_image_2.1_vae_bf16.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "Load VAE"
+    }
+  },
+  "487": {
+    "inputs": {
+      "width": 720,
+      "height": 1280,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent Image"
+    }
+  },
+  "488": {
+    "inputs": {
+      "samples": [
+        "509",
+        0
+      ],
+      "vae": [
+        "486",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "489": {
+    "inputs": {
+      "switch": true,
+      "on_false": [
+        "491",
+        2
+      ],
+      "on_true": [
+        "487",
+        0
+      ]
+    },
+    "class_type": "ComfySwitchNode",
+    "_meta": {
+      "title": "If/Else Switch"
+    }
+  },
+  "491": {
+    "inputs": {
+      "prompt": "Use the provided reference photo of a single woman only to preserve her exact facial identity and natural body figure, while ignoring her original pose, clothing, and background. Create a beautifully styled 5-panel digital scrapbook collage with torn-paper edges. The central panel displays a full-length mirror selfie of her posing elegantly while holding a phone. The surrounding panels show her in various expressive close-ups: looking down with a soft smile, resting her chin on her hand, and looking over her shoulder. She wears a premium, shimmering pastel red sequined saree with a heavily embellished silver and gold zardozi border, paired with a matching short-sleeve blouse. The collage is decorated with aesthetic elements like a pink satin bow, watercolor blue and pink butterflies, a blooming pink lily, a beautiful bouquet of fresh pink and white roses, and elegant handwritten texts: \"Dream Gurll\", \"pretty Naari\", and \"pretty soul\". The overall color palette is a vibrant, luminous pastel pink with soft studio lighting, a radiant rim light highlighting her hair, and a flawless, creamy glass-skin finish.",
+      "negative_prompt": "ugly, bad quality, low quality, blurry",
+      "resolution": 1024,
+      "clip": [
+        "493",
+        0
+      ],
+      "images.image_1": [
+        "524",
+        0
+      ],
+      "vae": [
+        "486",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImage21",
+    "_meta": {
+      "title": "Text Encode Qwen Image 2.1"
+    }
+  },
+  "493": {
+    "inputs": {
+      "clip_name": "qwen3vl_8b_int8_convrot.safetensors",
+      "type": "qwen_image",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load CLIP"
+    }
+  },
+  "496": {
+    "inputs": {
+      "unet_name": "qwen_image_2.1_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "Load Diffusion Model"
+    }
+  },
+  "508": {
+    "inputs": {
+      "filename_prefix": "Qwen_image_2.1",
+      "format": "png",
+      "format.bit_depth": "8-bit",
+      "format.input_color_space": "sRGB",
+      "images": [
+        "488",
+        0
+      ]
+    },
+    "class_type": "SaveImageAdvanced",
+    "_meta": {
+      "title": "Save Image (Advanced)"
+    }
+  },
+  "509": {
+    "inputs": {
+      "seed": 616124222728550,
+      "steps": 25,
+      "cfg": 1,
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1,
+      "model": [
+        "496",
+        0
+      ],
+      "positive": [
+        "491",
+        0
+      ],
+      "negative": [
+        "491",
+        1
+      ],
+      "latent_image": [
+        "489",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "524": {
+    "inputs": {
+      "image": "she.jpeg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Image"
+    }
+  }
+}

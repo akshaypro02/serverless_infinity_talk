@@ -16,8 +16,8 @@ services:
       - "8188:8188"
     volumes:
       - ./data/comfyui/output:/comfyui/output
-      - ./data/custom_nodes:/comfyui/custom_nodes
-      - ./data/runpod-volume/models:/comfyui/models
+      - ./data/comfyui/custom_nodes:/comfyui/custom_nodes
+      - ./data/comfyui/models:/comfyui/models
 
 
 ## docker buildx bake base-cuda13-1
