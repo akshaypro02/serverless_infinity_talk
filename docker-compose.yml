@@ -1,6 +1,6 @@
 services:
   comfyui-worker:
-    image: runpod/worker-comfyui:dev
+    image: akpro04/worker-comfyui:${RELEASE_VERSION:-latest}-base-cuda12.8.1
     pull_policy: never
     deploy:
       resources:
@@ -16,4 +16,9 @@ services:
       - "8188:8188"
     volumes:
       - ./data/comfyui/output:/comfyui/output
-      - ./data/runpod-volume:/runpod-volume
+      - ./data/custom_nodes:/comfyui/custom_nodes
+      - ./data/runpod-volume/models:/comfyui/models
+
+
+## docker buildx bake base-cuda13-1
+## RELEASE_VERSION=2.0 docker buildx bake base-cuda12-8-1

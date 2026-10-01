@@ -1,5 +1,5 @@
 variable "DOCKERHUB_REPO" {
-  default = "runpod"
+  default = "akpro04"
 }
 
 variable "DOCKERHUB_IMG" {
@@ -14,13 +14,13 @@ variable "COMFYUI_VERSION" {
   default = "latest"
 }
 
-# Global defaults for standard CUDA 12.6.3 images
+# Global defaults for standard CUDA 12.8.1 images
 variable "BASE_IMAGE" {
-  default = "nvidia/cuda:12.6.3-cudnn-runtime-ubuntu24.04"
+  default = "nvidia/cuda:12.8.1-runtime-ubuntu24.04"
 }
 
 variable "CUDA_VERSION_FOR_COMFY" {
-  default = "12.6"
+  default = "12.8.1"
 }
 
 variable "ENABLE_PYTORCH_UPGRADE" {
@@ -32,11 +32,11 @@ variable "PYTORCH_INDEX_URL" {
 }
 
 variable "HUGGINGFACE_ACCESS_TOKEN" {
-  default = ""
+  default = "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"
 }
 
 group "default" {
-  targets = ["base", "sdxl", "sd3", "flux1-schnell", "flux1-dev", "flux1-dev-fp8", "base-cuda12-8-1"]
+  targets = ["base", "sdxl", "sd3", "flux1-schnell", "flux1-dev", "flux1-dev-fp8", "base-cuda12-8-1", "base-cuda13-0"]
 }
 
 target "base" {
@@ -144,13 +144,29 @@ target "base-cuda12-8-1" {
   target = "base"
   platforms = ["linux/amd64"]
   args = {
-    BASE_IMAGE = "nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04"
+    BASE_IMAGE = "nvidia/cuda:12.8.1-runtime-ubuntu24.04"
     COMFYUI_VERSION = "${COMFYUI_VERSION}"
-    CUDA_VERSION_FOR_COMFY = ""
-    ENABLE_PYTORCH_UPGRADE = "true"
-    PYTORCH_INDEX_URL = "https://download.pytorch.org/whl/cu128"
+    CUDA_VERSION_FOR_COMFY = "12.8"
+    ENABLE_PYTORCH_UPGRADE = "false"
+    PYTORCH_INDEX_URL = ""
     MODEL_TYPE = "base"
   }
   tags = ["${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:${RELEASE_VERSION}-base-cuda12.8.1"]
 }
+
+target "base-cuda13-1" {
+  context = "."
+  dockerfile = "Dockerfile"
+  target = "base"
+  platforms = ["linux/amd64"]
+  args = {
+    BASE_IMAGE = "nvidia/cuda:13.1.1-runtime-ubuntu24.04"
+    COMFYUI_VERSION = "${COMFYUI_VERSION}"
+    CUDA_VERSION_FOR_COMFY = ""
+    ENABLE_PYTORCH_UPGRADE = "true"
+    PYTORCH_INDEX_URL = "https://download.pytorch.org/whl/cu130"
+  }
+  tags = ["${DOCKERHUB_REPO}/${DOCKERHUB_IMG}:${RELEASE_VERSION}-base-cuda13.1"]
+}
+
 

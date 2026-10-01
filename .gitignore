@@ -11,6 +11,8 @@ Thumbs.db
 *.swo
 
 # Cache directories
+External_files/
+AppData/
 AppData/
 .cursor/
 .electron-gyp/
